@@ -11,6 +11,8 @@ require('dotenv').config({ override: false });
 
 const { SendMessageCommand } = require('@aws-sdk/client-sqs');
 const { SQSClient } = require('@aws-sdk/client-sqs');
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
@@ -44,6 +46,20 @@ const sqsClient = new SQSClient({
   },
 });
 
+// Create DynamoDB client
+const dynamoDBClient = new DynamoDBClient({
+  region: AWS_REGION,
+  ...(process.env.AWS_ENDPOINT && {
+    endpoint: process.env.AWS_ENDPOINT,
+  }),
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID || 'local_access_key_id',
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'local_secret_access_key',
+  },
+});
+
+const dynamoDBDocClient = DynamoDBDocumentClient.from(dynamoDBClient);
+
 const url = process.argv[2] || 'https://example.com';
 
 // Generate unique request ID
@@ -60,10 +76,53 @@ const message = {
 
 async function sendMessage() {
   try {
-    console.log('Sending message to SQS queue...');
-    console.log('Endpoint:', process.env.AWS_ENDPOINT || 'AWS Default');
+    console.log('==========================================');
+    console.log('Sending Test Message to SQS');
+    console.log('==========================================');
+    console.log('URL:', url);
     console.log('Queue URL:', process.env.SQS_QUEUE_URL);
     console.log('Region:', AWS_REGION);
+    console.log('');
+
+    // Step 1: Create DynamoDB record with 'processing' status FIRST
+    const timestamp = new Date().toISOString();
+    const dynamoDBItem = {
+      id: requestId,
+      url: url,
+      status: 'processing',
+      width: message.width,
+      height: message.height,
+      format: message.format,
+      s3Url: null,
+      s3Key: null,
+      errorMessage: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+
+    console.log('Step 1: Creating DynamoDB record...');
+    console.log('Table:', process.env.DYNAMODB_TABLE_NAME || 'screenshot-results');
+    console.log('Request ID:', requestId);
+    console.log('Status: processing');
+
+    try {
+      const putCommand = new PutCommand({
+        TableName: process.env.DYNAMODB_TABLE_NAME || 'screenshot-results',
+        Item: dynamoDBItem,
+      });
+
+      await dynamoDBDocClient.send(putCommand);
+      console.log('✅ DynamoDB record created successfully');
+    } catch (dbError) {
+      console.error('❌ Failed to create DynamoDB record:', dbError.message);
+      console.log('Aborting - message will not be sent to SQS');
+      process.exit(1);
+    }
+
+    console.log('');
+
+    // Step 2: Send message to SQS queue
+    console.log('Step 2: Sending message to SQS...');
     console.log('Message:', JSON.stringify(message, null, 2));
 
     const command = new SendMessageCommand({
@@ -73,9 +132,13 @@ async function sendMessage() {
 
     const response = await sqsClient.send(command);
 
-    console.log('\n✅ Message sent successfully!');
+    console.log('');
+    console.log('==========================================');
+    console.log('✅ Message sent successfully!');
+    console.log('==========================================');
     console.log('Message ID:', response.MessageId);
-    console.log('Request ID:', requestId);
+    console.log('Request ID:', requestId, ' ← Use this to lookup screenshot');
+    console.log('');
 
     // Save message info to file for later query
     try {
@@ -109,16 +172,18 @@ async function sendMessage() {
         mode: 0o644,
       });
 
-      console.log('\n📝 Message info saved to:', messagesFile);
+      console.log('Message details saved to:', messagesFile);
+      console.log('');
     } catch (fileError) {
-      console.warn('\n⚠️  Could not save message to file:', fileError.message);
-      console.log('Message sent successfully but tracking file not saved');
+      console.warn('⚠️  Could not save message to file:', fileError.message);
     }
 
-    console.log('\nTo query this screenshot later:');
-    console.log(`  yarn query-screenshots`);
-    console.log(`  or check DynamoDB for requestId: ${requestId}`);
-    console.log('\nScreenshot will be processed shortly...');
+    console.log('==========================================');
+    console.log('Next steps:');
+    console.log('  1. Monitor logs: docker compose logs -f app');
+    console.log(`  2. Check status: yarn get-screenshot ${requestId}`);
+    console.log('  3. View results: yarn query-screenshots success');
+    console.log('==========================================');
   } catch (error) {
     console.log(error);
     console.error('❌ Error sending message:', error);

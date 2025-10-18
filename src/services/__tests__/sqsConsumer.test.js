@@ -42,26 +42,35 @@ describe('SQS Consumer - handleMessage', () => {
         key: 'screenshots/test.png',
       };
 
-      // Setup mocks
-      dynamodbService.getScreenshot.mockResolvedValueOnce(null); // Not exists
-      dynamodbService.saveScreenshotResult.mockResolvedValueOnce({ success: true });
+      // Setup mocks - record already exists with 'processing' status from send-test-message
+      dynamodbService.getScreenshot.mockResolvedValueOnce({
+        id: 'test-123',
+        status: 'processing',
+        url: 'https://example.com',
+      });
+      dynamodbService.updateScreenshotStatus.mockResolvedValueOnce({ success: true }); // Update to consumerProcessing
       screenshotService.captureScreenshot.mockResolvedValueOnce(mockScreenshot);
       s3Service.generateScreenshotKey.mockReturnValueOnce('screenshots/test.png');
       s3Service.uploadFile.mockResolvedValueOnce(mockS3Result);
-      dynamodbService.updateScreenshotStatus.mockResolvedValueOnce({ success: true });
+      dynamodbService.updateScreenshotStatus.mockResolvedValueOnce({ success: true }); // Final success
 
       // Execute
       await handleMessage(mockMessage);
 
       // Verify
       expect(dynamodbService.getScreenshot).toHaveBeenCalledWith('test-123');
-      expect(dynamodbService.saveScreenshotResult).toHaveBeenCalledWith(
+      // Should NOT create new record, only update existing one
+      expect(dynamodbService.saveScreenshotResult).not.toHaveBeenCalled();
+      // Should update to consumerProcessing status
+      expect(dynamodbService.updateScreenshotStatus).toHaveBeenNthCalledWith(
+        1,
+        'test-123',
+        'consumerProcessing',
         expect.objectContaining({
-          screenshotId: 'test-123',
-          url: 'https://example.com',
-          status: 'processing',
-        }),
-        { onlyIfNotExists: true }
+          width: 1920,
+          height: 1080,
+          format: 'png',
+        })
       );
       expect(screenshotService.captureScreenshot).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -76,7 +85,8 @@ describe('SQS Consumer - handleMessage', () => {
         'screenshots/test.png',
         'image/png'
       );
-      expect(dynamodbService.updateScreenshotStatus).toHaveBeenCalledWith(
+      expect(dynamodbService.updateScreenshotStatus).toHaveBeenNthCalledWith(
+        2,
         'test-123',
         'success',
         expect.objectContaining({
@@ -117,7 +127,7 @@ describe('SQS Consumer - handleMessage', () => {
 
       const existingScreenshot = {
         id: 'test-123',
-        status: 'processing',
+        status: 'consumerProcessing', // Already being actively processed
         createdAt: new Date().toISOString(), // Recent
       };
 
@@ -141,7 +151,7 @@ describe('SQS Consumer - handleMessage', () => {
 
       const existingScreenshot = {
         id: 'test-123',
-        status: 'processing',
+        status: 'consumerProcessing', // Stale consumerProcessing status
         createdAt: staleDate.toISOString(),
         updatedAt: staleDate.toISOString(),
       };
@@ -155,11 +165,11 @@ describe('SQS Consumer - handleMessage', () => {
 
       // Setup mocks
       dynamodbService.getScreenshot.mockResolvedValueOnce(existingScreenshot);
-      dynamodbService.saveScreenshotResult.mockResolvedValueOnce({ success: true });
+      dynamodbService.updateScreenshotStatus.mockResolvedValueOnce({ success: true }); // Update to consumerProcessing
       screenshotService.captureScreenshot.mockResolvedValueOnce(mockScreenshot);
       s3Service.generateScreenshotKey.mockReturnValueOnce('screenshots/test.png');
       s3Service.uploadFile.mockResolvedValueOnce(mockS3Result);
-      dynamodbService.updateScreenshotStatus.mockResolvedValueOnce({ success: true });
+      dynamodbService.updateScreenshotStatus.mockResolvedValueOnce({ success: true }); // Final success
 
       // Execute
       await handleMessage(mockMessage);
@@ -176,18 +186,29 @@ describe('SQS Consumer - handleMessage', () => {
         requestId: 'test-123',
       });
 
-      const conditionalError = new Error('Conditional check failed');
-      conditionalError.name = 'ConditionalCheckFailedException';
-
-      // Setup mocks
+      // Setup mocks - record not found, fallback will create it
       dynamodbService.getScreenshot.mockResolvedValueOnce(null);
-      dynamodbService.saveScreenshotResult.mockRejectedValueOnce(conditionalError);
+      dynamodbService.saveScreenshotResult.mockResolvedValueOnce({ success: true });
+      dynamodbService.updateScreenshotStatus.mockResolvedValueOnce({ success: true }); // consumerProcessing
+
+      const mockScreenshot = Buffer.from('screenshot data');
+      const mockS3Result = {
+        success: true,
+        url: 'https://s3.amazonaws.com/bucket/screenshot.png',
+        key: 'screenshots/test.png',
+      };
+
+      screenshotService.captureScreenshot.mockResolvedValueOnce(mockScreenshot);
+      s3Service.generateScreenshotKey.mockReturnValueOnce('screenshots/test.png');
+      s3Service.uploadFile.mockResolvedValueOnce(mockS3Result);
+      dynamodbService.updateScreenshotStatus.mockResolvedValueOnce({ success: true }); // success
 
       // Execute
       await handleMessage(mockMessage);
 
-      // Verify - should skip without error
-      expect(screenshotService.captureScreenshot).not.toHaveBeenCalled();
+      // Verify - should process with fallback record creation
+      expect(dynamodbService.saveScreenshotResult).toHaveBeenCalled();
+      expect(screenshotService.captureScreenshot).toHaveBeenCalled();
     });
   });
 
@@ -210,10 +231,13 @@ describe('SQS Consumer - handleMessage', () => {
       const screenshotError = new Error('Screenshot failed');
 
       // Setup mocks
-      dynamodbService.getScreenshot.mockResolvedValueOnce(null);
-      dynamodbService.saveScreenshotResult.mockResolvedValueOnce({ success: true });
+      dynamodbService.getScreenshot.mockResolvedValueOnce({
+        id: 'test-123',
+        status: 'processing',
+      });
+      dynamodbService.updateScreenshotStatus.mockResolvedValueOnce({ success: true }); // consumerProcessing
       screenshotService.captureScreenshot.mockRejectedValueOnce(screenshotError);
-      dynamodbService.updateScreenshotStatus.mockResolvedValueOnce({ success: true });
+      dynamodbService.updateScreenshotStatus.mockResolvedValueOnce({ success: true }); // failed
 
       // Execute
       await expect(handleMessage(mockMessage)).rejects.toThrow('Screenshot failed');
@@ -238,12 +262,15 @@ describe('SQS Consumer - handleMessage', () => {
       const uploadError = new Error('S3 upload failed');
 
       // Setup mocks
-      dynamodbService.getScreenshot.mockResolvedValueOnce(null);
-      dynamodbService.saveScreenshotResult.mockResolvedValueOnce({ success: true });
+      dynamodbService.getScreenshot.mockResolvedValueOnce({
+        id: 'test-123',
+        status: 'processing',
+      });
+      dynamodbService.updateScreenshotStatus.mockResolvedValueOnce({ success: true }); // consumerProcessing
       screenshotService.captureScreenshot.mockResolvedValueOnce(mockScreenshot);
       s3Service.generateScreenshotKey.mockReturnValueOnce('screenshots/test.png');
       s3Service.uploadFile.mockRejectedValueOnce(uploadError);
-      dynamodbService.updateScreenshotStatus.mockResolvedValueOnce({ success: true });
+      dynamodbService.updateScreenshotStatus.mockResolvedValueOnce({ success: true }); // failed
 
       // Execute
       await expect(handleMessage(mockMessage)).rejects.toThrow('S3 upload failed');
@@ -268,10 +295,13 @@ describe('SQS Consumer - handleMessage', () => {
       const dbUpdateError = new Error('DynamoDB update failed');
 
       // Setup mocks
-      dynamodbService.getScreenshot.mockResolvedValueOnce(null);
-      dynamodbService.saveScreenshotResult.mockResolvedValueOnce({ success: true });
+      dynamodbService.getScreenshot.mockResolvedValueOnce({
+        id: 'test-123',
+        status: 'processing',
+      });
+      dynamodbService.updateScreenshotStatus.mockResolvedValueOnce({ success: true }); // consumerProcessing
       screenshotService.captureScreenshot.mockRejectedValueOnce(screenshotError);
-      dynamodbService.updateScreenshotStatus.mockRejectedValueOnce(dbUpdateError);
+      dynamodbService.updateScreenshotStatus.mockRejectedValueOnce(dbUpdateError); // failed update fails
 
       // Execute
       await expect(handleMessage(mockMessage)).rejects.toThrow('Screenshot failed');
@@ -297,12 +327,13 @@ describe('SQS Consumer - handleMessage', () => {
       };
 
       // Setup mocks
-      dynamodbService.getScreenshot.mockResolvedValueOnce(null);
-      dynamodbService.saveScreenshotResult.mockResolvedValueOnce({ success: true });
+      dynamodbService.getScreenshot.mockResolvedValueOnce(null); // Not found, will use fallback
+      dynamodbService.saveScreenshotResult.mockResolvedValueOnce({ success: true }); // Fallback create
+      dynamodbService.updateScreenshotStatus.mockResolvedValueOnce({ success: true }); // consumerProcessing
       screenshotService.captureScreenshot.mockResolvedValueOnce(mockScreenshot);
       s3Service.generateScreenshotKey.mockReturnValueOnce('screenshots/test.png');
       s3Service.uploadFile.mockResolvedValueOnce(mockS3Result);
-      dynamodbService.updateScreenshotStatus.mockResolvedValueOnce({ success: true });
+      dynamodbService.updateScreenshotStatus.mockResolvedValueOnce({ success: true }); // success
 
       // Execute
       await handleMessage(mockMessage);

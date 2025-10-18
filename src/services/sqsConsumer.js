@@ -12,11 +12,20 @@ const logger = require('../utils/logger');
  * Flow:
  * 1. Parse message body and extract screenshot parameters
  * 2. Check if screenshot already exists and is successful (skip if already processed)
- * 3. Save initial record to DynamoDB with 'processing' status
- * 4. Capture screenshot using Puppeteer
- * 5. Upload screenshot to S3
- * 6. Update DynamoDB with 'success' status
- * 7. Return success (message will be automatically deleted from SQS)
+ * 3. Check if screenshot is being processed (not stale) by another instance (skip)
+ * 4. Update DynamoDB record to 'consumerProcessing' status - consumer is actively working
+ * 5. Capture screenshot using Puppeteer
+ * 6. Upload screenshot to S3
+ * 7. Update DynamoDB with 'success' status
+ * 8. Return success (message will be automatically deleted from SQS)
+ *
+ * Note: The initial 'processing' record is created when message is sent to SQS
+ *
+ * Status flow:
+ * - processing: Message sent to SQS, waiting for consumer
+ * - consumerProcessing: Consumer actively processing the request
+ * - success: Screenshot captured and uploaded successfully
+ * - failed: Error occurred during processing
  *
  * On error:
  * - Update DynamoDB with 'failed' status
@@ -51,7 +60,26 @@ async function handleMessage(message) {
 
     // Check if this screenshot already exists and is successful
     const existingScreenshot = await dynamodbService.getScreenshot(screenshotId);
-    if (existingScreenshot && existingScreenshot.status === 'success') {
+
+    if (!existingScreenshot) {
+      // This should not happen - record should have been created when message was sent
+      logger.warn(
+        {
+          screenshotId,
+          url,
+        },
+        'Screenshot record not found in DynamoDB - this is unexpected'
+      );
+      // Create the record now as fallback
+      await dynamodbService.saveScreenshotResult({
+        screenshotId,
+        url,
+        status: 'processing',
+        width: width || config.screenshot.defaultWidth,
+        height: height || config.screenshot.defaultHeight,
+        format,
+      });
+    } else if (existingScreenshot.status === 'success') {
       logger.info(
         {
           screenshotId,
@@ -61,13 +89,11 @@ async function handleMessage(message) {
         },
         'Screenshot already processed successfully, skipping (message will be deleted)'
       );
-      // Don't return anything - just let function complete successfully
-      // This allows SQS consumer to delete the message
       return;
     }
 
-    // If already being processed by another instance, check if stale
-    if (existingScreenshot && existingScreenshot.status === 'processing') {
+    // If already being actively processed by consumer (consumerProcessing), check if stale
+    if (existingScreenshot && existingScreenshot.status === 'consumerProcessing') {
       // Check if processing has been going on for too long (stale record)
       const processingStartTime = new Date(
         existingScreenshot.updatedAt || existingScreenshot.createdAt
@@ -84,6 +110,7 @@ async function handleMessage(message) {
             processingDurationMs,
             maxProcessingTimeMs,
             startedAt: processingStartTime.toISOString(),
+            currentStatus: existingScreenshot.status,
           },
           'Screenshot processing appears stale, will retry'
         );
@@ -93,46 +120,22 @@ async function handleMessage(message) {
           {
             screenshotId,
             url,
-            status: 'processing',
+            status: existingScreenshot.status,
             processingDurationMs,
           },
-          'Screenshot is being processed by another instance, skipping (message will be deleted)'
+          'Screenshot is being actively processed by another consumer, skipping'
         );
-        // Don't return anything - message will be deleted
         return;
       }
     }
 
-    // Save initial record to DynamoDB with conditional write (only if not exists)
-    // This prevents race condition when multiple instances receive the same message
-    try {
-      await dynamodbService.saveScreenshotResult(
-        {
-          screenshotId,
-          url,
-          status: 'processing',
-          width: width || config.screenshot.defaultWidth,
-          height: height || config.screenshot.defaultHeight,
-          format,
-        },
-        { onlyIfNotExists: true }
-      );
-    } catch (error) {
-      // If conditional write fails, item already exists (another instance got it first)
-      if (error.name === 'ConditionalCheckFailedException') {
-        logger.info(
-          {
-            screenshotId,
-            url,
-          },
-          'Screenshot already being processed by another instance (conditional write failed, message will be deleted)'
-        );
-        // Don't return anything - message will be deleted
-        return;
-      }
-      // Re-throw other errors
-      throw error;
-    }
+    // Update DynamoDB to 'consumerProcessing' status
+    // This shows this consumer instance is now actively handling the request
+    await dynamodbService.updateScreenshotStatus(screenshotId, 'consumerProcessing', {
+      width: width || config.screenshot.defaultWidth,
+      height: height || config.screenshot.defaultHeight,
+      format,
+    });
 
     // Capture screenshot
     const screenshot = await screenshotService.captureScreenshot({
@@ -165,8 +168,6 @@ async function handleMessage(message) {
       },
       'Screenshot processed successfully (message will be deleted)'
     );
-
-    // Don't return anything - let SQS consumer delete the message
   } catch (error) {
     const duration = Date.now() - startTime;
     logger.error(
