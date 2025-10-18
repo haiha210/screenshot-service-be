@@ -5,30 +5,42 @@
  * Usage: node scripts/send-test-message.js [url]
  */
 
-require('dotenv').config();
+// Load .env file but don't override existing environment variables
+// This way docker-compose env vars take precedence
+require('dotenv').config({ override: false });
+
 const { SendMessageCommand } = require('@aws-sdk/client-sqs');
 const { SQSClient } = require('@aws-sdk/client-sqs');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
-// For local testing with LocalStack, override the endpoint
-const isLocalStack =
-  process.env.AWS_ENDPOINT?.includes('localstack') || process.env.USE_LOCALSTACK === 'true';
-const AWS_ENDPOINT = isLocalStack ? 'http://localhost:4566' : process.env.AWS_ENDPOINT;
+// For local testing with LocalStack
+// When running inside Docker container, AWS_ENDPOINT will be set by docker-compose
+// When running on host machine, it will use localhost or can be set via USE_LOCALSTACK=true
 const AWS_REGION = process.env.AWS_REGION || 'us-east-1';
-const QUEUE_URL =
-  process.env.SQS_QUEUE_URL || 'http://localhost:4566/000000000000/screenshot-queue';
 
-// Create SQS client for local testing
+// If no AWS_ENDPOINT is set, try to detect LocalStack for local development
+if (
+  !process.env.AWS_ENDPOINT &&
+  (process.env.USE_LOCALSTACK === 'true' || !process.env.SQS_QUEUE_URL)
+) {
+  // Running on host machine with LocalStack
+  console.log('🔧 Auto-detecting LocalStack on localhost...');
+  process.env.AWS_ENDPOINT = 'http://localhost:4566';
+  process.env.SQS_QUEUE_URL =
+    process.env.SQS_QUEUE_URL || 'http://localhost:4566/000000000000/screenshot-queue';
+}
+
+// Create SQS client
 const sqsClient = new SQSClient({
   region: AWS_REGION,
-  ...(AWS_ENDPOINT && {
-    endpoint: AWS_ENDPOINT,
+  ...(process.env.AWS_ENDPOINT && {
+    endpoint: process.env.AWS_ENDPOINT,
   }),
   credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || 'test',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'test',
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID || 'local_access_key_id',
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'local_secret_access_key',
   },
 });
 
@@ -49,12 +61,13 @@ const message = {
 async function sendMessage() {
   try {
     console.log('Sending message to SQS queue...');
-    console.log('Endpoint:', AWS_ENDPOINT || 'AWS Default');
-    console.log('Queue URL:', QUEUE_URL);
+    console.log('Endpoint:', process.env.AWS_ENDPOINT || 'AWS Default');
+    console.log('Queue URL:', process.env.SQS_QUEUE_URL);
+    console.log('Region:', AWS_REGION);
     console.log('Message:', JSON.stringify(message, null, 2));
 
     const command = new SendMessageCommand({
-      QueueUrl: QUEUE_URL,
+      QueueUrl: process.env.SQS_QUEUE_URL,
       MessageBody: JSON.stringify(message),
     });
 
@@ -71,7 +84,7 @@ async function sendMessage() {
         requestId: requestId,
         url: url,
         timestamp: new Date().toISOString(),
-        queueUrl: QUEUE_URL,
+        queueUrl: process.env.SQS_QUEUE_URL,
       };
 
       const logsDir = path.join(__dirname, '..', 'logs');
@@ -107,11 +120,8 @@ async function sendMessage() {
     console.log(`  or check DynamoDB for requestId: ${requestId}`);
     console.log('\nScreenshot will be processed shortly...');
   } catch (error) {
-    console.error('❌ Error sending message:', error.message);
-    console.error('\nTroubleshooting:');
-    console.error('- Make sure LocalStack is running: docker-compose ps');
-    console.error('- Check queue exists: source venv/bin/activate && awslocal sqs list-queues');
-    console.error('- Verify endpoint:', AWS_ENDPOINT || 'Using AWS default');
+    console.log(error);
+    console.error('❌ Error sending message:', error);
     process.exit(1);
   }
 }

@@ -88,13 +88,20 @@ class ScreenshotService {
    */
   async captureScreenshot(options) {
     const {
-      url,
+      url: rawUrl,
       width = config.screenshot.defaultWidth,
       height = config.screenshot.defaultHeight,
       format = config.screenshot.format,
       quality = 80,
       fullPage = false,
     } = options;
+
+    // Normalize URL - add protocol if missing
+    let url = rawUrl.trim();
+    if (!url.match(/^https?:\/\//i)) {
+      url = `https://${url}`;
+      logger.debug({ rawUrl, normalizedUrl: url }, 'Added protocol to URL');
+    }
 
     const startTime = Date.now();
     logger.info({ url, width, height, format, fullPage }, 'Capturing screenshot');

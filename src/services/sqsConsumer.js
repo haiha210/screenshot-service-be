@@ -1,5 +1,4 @@
 const { Consumer } = require('sqs-consumer');
-const { v4: uuidv4 } = require('uuid');
 const config = require('../config');
 const { sqsClient } = require('../config/aws');
 const screenshotService = require('../services/screenshotService');
@@ -9,6 +8,20 @@ const logger = require('../utils/logger');
 
 /**
  * Process screenshot message
+ *
+ * Flow:
+ * 1. Parse message body and extract screenshot parameters
+ * 2. Check if screenshot already exists and is successful (skip if already processed)
+ * 3. Save initial record to DynamoDB with 'processing' status
+ * 4. Capture screenshot using Puppeteer
+ * 5. Upload screenshot to S3
+ * 6. Update DynamoDB with 'success' status
+ * 7. Return success (message will be automatically deleted from SQS)
+ *
+ * On error:
+ * - Update DynamoDB with 'failed' status
+ * - Re-throw error to let SQS retry (message not deleted)
+ *
  * @param {Object} message - SQS message
  */
 async function handleMessage(message) {
@@ -27,33 +40,99 @@ async function handleMessage(message) {
     );
 
     // Extract screenshot parameters from message
-    const {
-      url,
-      width,
-      height,
-      format = 'png',
-      quality = 80,
-      fullPage = false,
-      screenshotId: providedId,
-    } = body;
+    const { url, width, height, format = 'png', quality = 80, fullPage = false, requestId } = body;
 
     // Validate required fields
     if (!url) {
       throw new Error('URL is required in message body');
     }
 
-    // Generate or use provided screenshot ID
-    screenshotId = providedId || uuidv4();
+    screenshotId = requestId;
 
-    // Save initial record to DynamoDB
-    await dynamodbService.saveScreenshotResult({
-      screenshotId,
-      url,
-      status: 'processing',
-      width: width || config.screenshot.defaultWidth,
-      height: height || config.screenshot.defaultHeight,
-      format,
-    });
+    // Check if this screenshot already exists and is successful
+    const existingScreenshot = await dynamodbService.getScreenshot(screenshotId);
+    if (existingScreenshot && existingScreenshot.status === 'success') {
+      logger.info(
+        {
+          screenshotId,
+          url,
+          status: existingScreenshot.status,
+          s3Url: existingScreenshot.s3Url,
+        },
+        'Screenshot already processed successfully, skipping (message will be deleted)'
+      );
+      // Don't return anything - just let function complete successfully
+      // This allows SQS consumer to delete the message
+      return;
+    }
+
+    // If already being processed by another instance, check if stale
+    if (existingScreenshot && existingScreenshot.status === 'processing') {
+      // Check if processing has been going on for too long (stale record)
+      const processingStartTime = new Date(
+        existingScreenshot.updatedAt || existingScreenshot.createdAt
+      );
+      const now = new Date();
+      const processingDurationMs = now - processingStartTime;
+      const maxProcessingTimeMs = 10 * 60 * 1000; // 10 minutes
+
+      if (processingDurationMs > maxProcessingTimeMs) {
+        logger.warn(
+          {
+            screenshotId,
+            url,
+            processingDurationMs,
+            maxProcessingTimeMs,
+            startedAt: processingStartTime.toISOString(),
+          },
+          'Screenshot processing appears stale, will retry'
+        );
+        // Continue processing (don't skip)
+      } else {
+        logger.info(
+          {
+            screenshotId,
+            url,
+            status: 'processing',
+            processingDurationMs,
+          },
+          'Screenshot is being processed by another instance, skipping (message will be deleted)'
+        );
+        // Don't return anything - message will be deleted
+        return;
+      }
+    }
+
+    // Save initial record to DynamoDB with conditional write (only if not exists)
+    // This prevents race condition when multiple instances receive the same message
+    try {
+      await dynamodbService.saveScreenshotResult(
+        {
+          screenshotId,
+          url,
+          status: 'processing',
+          width: width || config.screenshot.defaultWidth,
+          height: height || config.screenshot.defaultHeight,
+          format,
+        },
+        { onlyIfNotExists: true }
+      );
+    } catch (error) {
+      // If conditional write fails, item already exists (another instance got it first)
+      if (error.name === 'ConditionalCheckFailedException') {
+        logger.info(
+          {
+            screenshotId,
+            url,
+          },
+          'Screenshot already being processed by another instance (conditional write failed, message will be deleted)'
+        );
+        // Don't return anything - message will be deleted
+        return;
+      }
+      // Re-throw other errors
+      throw error;
+    }
 
     // Capture screenshot
     const screenshot = await screenshotService.captureScreenshot({
@@ -84,14 +163,10 @@ async function handleMessage(message) {
         messageId: message.MessageId,
         duration,
       },
-      'Screenshot processed successfully'
+      'Screenshot processed successfully (message will be deleted)'
     );
 
-    return {
-      success: true,
-      screenshotId,
-      s3Url: uploadResult.url,
-    };
+    // Don't return anything - let SQS consumer delete the message
   } catch (error) {
     const duration = Date.now() - startTime;
     logger.error(
@@ -137,6 +212,8 @@ function createConsumer() {
     batchSize: config.sqs.batchSize,
     visibilityTimeout: config.sqs.visibilityTimeout,
     waitTimeSeconds: config.sqs.waitTimeSeconds,
+    // Automatically delete messages after successful processing
+    shouldDeleteMessages: true,
   });
 
   // Event handlers
@@ -154,10 +231,6 @@ function createConsumer() {
 
   consumer.on('message_received', (message) => {
     logger.debug({ messageId: message.MessageId }, 'Message received from SQS');
-  });
-
-  consumer.on('message_processed', (message) => {
-    logger.debug({ messageId: message.MessageId }, 'Message processed and deleted from queue');
   });
 
   consumer.on('stopped', () => {

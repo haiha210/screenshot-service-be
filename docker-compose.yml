@@ -8,26 +8,19 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    environment:
-      # Override .env values for LocalStack
-      - NODE_ENV=development
-      - AWS_REGION=us-east-1
-      - AWS_ACCESS_KEY_ID=test
-      - AWS_SECRET_ACCESS_KEY=test
-      - AWS_ENDPOINT=http://localstack:4566
-      - SQS_QUEUE_URL=http://localstack:4566/000000000000/screenshot-queue
-      - S3_BUCKET_NAME=screenshot-bucket
-      - DYNAMODB_TABLE_NAME=screenshot-results
-      - LOG_LEVEL=debug
     volumes:
       - ./src:/usr/src/app/src
+      - ./scripts:/usr/src/app/scripts
       - ./logs:/usr/src/app/logs
+      - ./docker-entrypoint.sh:/usr/src/app/docker-entrypoint.sh:ro
       - /usr/src/app/node_modules
+      - ./package.json:/usr/src/app/package.json
     networks:
       - screenshot-network
     depends_on:
       localstack:
         condition: service_healthy
+    entrypoint: ['/bin/sh', '/usr/src/app/docker-entrypoint.sh']
     command: yarn dev
 
   # LocalStack for local AWS development

@@ -338,7 +338,20 @@ awslocal sqs list-queues
 awslocal dynamodb scan --table-name screenshot-results
 
 # Query screenshots by status
-yarn query-screenshots
+yarn query-screenshots success
+
+# Get specific screenshot by requestId
+yarn get-screenshot <requestId>
+```
+
+### Query Specific Screenshot:
+
+```bash
+# Get screenshot details by requestId
+yarn get-screenshot 4f6f6899-7da4-4c33-87a1-4a3b0a484b9c
+
+# Or use the script directly
+node scripts/get-screenshot.js <requestId>
 ```
 
 ### Download screenshot from LocalStack:
@@ -391,6 +404,21 @@ Available levels: `trace`, `debug`, `info` (default), `warn`, `error`, `fatal`
 
 Detailed logging practices: [LOGGING.md](./LOGGING.md)
 
+## 🚀 Scaling
+
+Service is designed to scale horizontally with multiple ECS containers.
+
+### Key Features
+
+- ✅ Race condition prevention with DynamoDB conditional writes
+- ✅ Duplicate screenshot detection
+- ✅ SQS visibility timeout to prevent message conflicts
+- ✅ Safe concurrent processing
+
+### Learn more
+
+Detailed scaling guide: [docs/SCALING.md](./docs/SCALING.md)
+
 ## Makefile Commands
 
 Project includes a Makefile for easier management:
@@ -405,7 +433,6 @@ make logs             # View logs
 make down             # Stop services
 
 # Testing
-make test-message URL=https://github.com   # Send message with custom URL
 make query-screenshots STATUS=success       # Query screenshots by status
 
 # LocalStack utilities

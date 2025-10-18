@@ -1,4 +1,4 @@
-.PHONY: help install dev up down logs build clean test-message query-screenshots
+.PHONY: help install dev up down logs build clean query-screenshots
 
 help: ## Hiển thị help
 	@echo "Available commands:"
@@ -42,13 +42,6 @@ clean: ## Xóa containers và volumes
 restart: down up ## Restart production service
 
 restart-dev: down-dev dev ## Restart development service
-
-test-message: ## Gửi test message (usage: make test-message URL=https://example.com)
-	@if [ -z "$(URL)" ]; then \
-		yarn send-message; \
-	else \
-		yarn send-message $(URL); \
-	fi
 
 query-screenshots: ## Query screenshots (usage: make query-screenshots STATUS=success)
 	@if [ -z "$(STATUS)" ]; then \

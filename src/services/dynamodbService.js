@@ -7,9 +7,11 @@ class DynamoDBService {
   /**
    * Save screenshot result to DynamoDB
    * @param {Object} data - Screenshot data
+   * @param {Object} options - Additional options
+   * @param {boolean} options.onlyIfNotExists - Only save if item doesn't exist (prevents race condition)
    * @returns {Promise<Object>} Save result
    */
-  async saveScreenshotResult(data) {
+  async saveScreenshotResult(data, options = {}) {
     const {
       screenshotId,
       url,
@@ -21,6 +23,8 @@ class DynamoDBService {
       format,
       errorMessage = null,
     } = data;
+
+    const { onlyIfNotExists = false } = options;
 
     const timestamp = new Date().toISOString();
 
@@ -44,15 +48,23 @@ class DynamoDBService {
           screenshotId,
           url,
           status,
+          onlyIfNotExists,
           tableName: config.dynamodb.tableName,
         },
         'Saving screenshot result to DynamoDB'
       );
 
-      const command = new PutCommand({
+      const commandParams = {
         TableName: config.dynamodb.tableName,
         Item: item,
-      });
+      };
+
+      // Add conditional expression to prevent overwriting existing items
+      if (onlyIfNotExists) {
+        commandParams.ConditionExpression = 'attribute_not_exists(id)';
+      }
+
+      const command = new PutCommand(commandParams);
 
       await dynamoDBDocClient.send(command);
 
@@ -70,6 +82,21 @@ class DynamoDBService {
         item,
       };
     } catch (error) {
+      // ConditionalCheckFailedException is expected when using onlyIfNotExists
+      // Don't log it as error, just re-throw to let caller handle it
+      if (error.name === 'ConditionalCheckFailedException') {
+        logger.debug(
+          {
+            screenshotId,
+            tableName: config.dynamodb.tableName,
+            condition: 'attribute_not_exists(id)',
+          },
+          'Conditional write failed - item already exists'
+        );
+        throw error;
+      }
+
+      // Log other errors as actual errors
       logger.error(
         {
           err: error,
@@ -87,9 +114,9 @@ class DynamoDBService {
    * @param {string} screenshotId - Screenshot ID
    * @returns {Promise<Object>} Screenshot item
    */
-  async getScreenshotById(screenshotId) {
+  async getScreenshot(screenshotId) {
     try {
-      logger.info(`Getting screenshot from DynamoDB: ${screenshotId}`);
+      logger.debug({ screenshotId }, 'Getting screenshot from DynamoDB');
 
       const command = new GetCommand({
         TableName: config.dynamodb.tableName,
@@ -102,9 +129,18 @@ class DynamoDBService {
 
       return response.Item || null;
     } catch (error) {
-      logger.error('Error getting screenshot from DynamoDB:', error);
+      logger.error({ err: error, screenshotId }, 'Error getting screenshot from DynamoDB');
       throw error;
     }
+  }
+
+  /**
+   * Alias for getScreenshot for backward compatibility
+   * @param {string} screenshotId - Screenshot ID
+   * @returns {Promise<Object>} Screenshot item
+   */
+  async getScreenshotById(screenshotId) {
+    return this.getScreenshot(screenshotId);
   }
 
   /**

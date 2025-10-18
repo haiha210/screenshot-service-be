@@ -9,8 +9,14 @@ export AWS_ACCESS_KEY_ID=local_access_key_id
 export AWS_SECRET_ACCESS_KEY=local_secret_access_key
 export AWS_DEFAULT_REGION=us-east-1
 
-# Set endpoint
-ENDPOINT_URL="http://localhost:4566"
+# Set endpoint - use localstack hostname if running in Docker, localhost otherwise
+if [ -n "$AWS_ENDPOINT" ]; then
+  ENDPOINT_URL="$AWS_ENDPOINT"
+else
+  ENDPOINT_URL="http://localhost:4566"
+fi
+
+echo "Using endpoint: $ENDPOINT_URL"
 
 # Wait for LocalStack to be ready
 echo "Waiting for LocalStack to be ready..."
@@ -31,14 +37,49 @@ echo "✓ LocalStack is ready!"
 echo ""
 echo "Creating S3 bucket: screenshot-bucket"
 aws --endpoint-url="$ENDPOINT_URL" s3 mb s3://screenshot-bucket 2>/dev/null || echo "  → Bucket already exists"
-aws --endpoint-url="$ENDPOINT_URL" s3 ls
+echo "  ✓ S3 bucket ready"
 
-# Create SQS queue
+# Create Dead Letter Queue first
 echo ""
-echo "Creating SQS queue: screenshot-queue"
-QUEUE_URL=$(aws --endpoint-url="$ENDPOINT_URL" sqs create-queue --queue-name screenshot-queue --query 'QueueUrl' --output text 2>/dev/null || aws --endpoint-url="$ENDPOINT_URL" sqs get-queue-url --queue-name screenshot-queue --query 'QueueUrl' --output text)
+echo "Creating Dead Letter Queue: screenshot-queue-dlq"
+DLQ_URL=$(aws --endpoint-url="$ENDPOINT_URL" sqs create-queue \
+    --queue-name screenshot-queue-dlq \
+    --query 'QueueUrl' --output text 2>/dev/null || \
+    aws --endpoint-url="$ENDPOINT_URL" sqs get-queue-url \
+    --queue-name screenshot-queue-dlq \
+    --query 'QueueUrl' --output text)
+
+# Get DLQ ARN
+DLQ_ARN=$(aws --endpoint-url="$ENDPOINT_URL" sqs get-queue-attributes \
+    --queue-url "$DLQ_URL" \
+    --attribute-names QueueArn \
+    --query 'Attributes.QueueArn' --output text)
+
+echo "  → DLQ URL: $DLQ_URL"
+echo "  → DLQ ARN: $DLQ_ARN"
+echo "  ✓ Dead Letter Queue ready"
+
+# Create SQS queue with redrive policy (retry 3 times)
+echo ""
+echo "Creating SQS queue: screenshot-queue (with 3 retries)"
+QUEUE_URL=$(aws --endpoint-url="$ENDPOINT_URL" sqs create-queue \
+    --queue-name screenshot-queue \
+    --attributes "{
+        \"VisibilityTimeout\": \"300\",
+        \"MessageRetentionPeriod\": \"86400\",
+        \"ReceiveMessageWaitTimeSeconds\": \"20\",
+        \"RedrivePolicy\": \"{\\\"deadLetterTargetArn\\\":\\\"$DLQ_ARN\\\",\\\"maxReceiveCount\\\":\\\"3\\\"}\"
+    }" \
+    --query 'QueueUrl' --output text 2>/dev/null || \
+    aws --endpoint-url="$ENDPOINT_URL" sqs get-queue-url \
+    --queue-name screenshot-queue \
+    --query 'QueueUrl' --output text)
+
 echo "  → Queue URL: $QUEUE_URL"
-aws --endpoint-url="$ENDPOINT_URL" sqs list-queues
+echo "  → Max Retries: 3"
+echo "  → Visibility Timeout: 300s (5 minutes)"
+echo "  → Dead Letter Queue: screenshot-queue-dlq"
+echo "  ✓ SQS queue ready"
 
 # Create DynamoDB table
 echo ""
@@ -72,7 +113,7 @@ aws --endpoint-url="$ENDPOINT_URL" dynamodb create-table \
         ReadCapacityUnits=5,WriteCapacityUnits=5 \
     2>/dev/null || echo "  → Table already exists"
 
-aws --endpoint-url="$ENDPOINT_URL" dynamodb list-tables
+echo "  ✓ DynamoDB table ready"
 
 echo ""
 echo "=========================================="
