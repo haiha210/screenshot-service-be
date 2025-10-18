@@ -38,6 +38,23 @@ module.exports = [
       'no-var': 'error',
     },
   },
+  // Jest test files configuration
+  {
+    files: ['**/*.test.js', '**/*.spec.js', '**/jest.setup.js'],
+    languageOptions: {
+      globals: {
+        jest: 'readonly',
+        describe: 'readonly',
+        it: 'readonly',
+        test: 'readonly',
+        expect: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        beforeAll: 'readonly',
+        afterAll: 'readonly',
+      },
+    },
+  },
   {
     ignores: [
       'node_modules/**',

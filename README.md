@@ -601,6 +601,64 @@ Service automatically writes logs to CloudWatch when running on ECS.
 - S3 upload success rate
 - DynamoDB write/read capacity
 
+## Testing
+
+### Run Tests
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage report
+npm run test:coverage
+
+# Run specific test file
+npx jest src/services/__tests__/dynamodbService.test.js
+```
+
+### Test Coverage
+
+Current coverage (updated October 2025):
+
+| Service | Coverage |
+|---------|----------|
+| DynamoDB Service | 97.87% |
+| S3 Service | 100% |
+| Screenshot Service | 91.93% |
+| SQS Consumer | 76.19% |
+| **Overall** | **86.56%** |
+
+### Test Structure
+
+```
+src/services/__tests__/
+├── dynamodbService.test.js    # DynamoDB operations tests (12 tests)
+├── s3Service.test.js           # S3 upload tests (10 tests)
+├── sqsConsumer.test.js         # Message processing tests (10 tests)
+└── screenshotService.test.js   # Puppeteer screenshot tests (24 tests)
+```
+
+**Total: 56 tests - All passing ✅**
+
+See [Testing Guide](docs/TESTING.md) for comprehensive testing documentation.
+
+## Documentation
+
+Detailed documentation available in the `docs/` directory:
+
+- **[Testing Guide](docs/TESTING.md)** - Comprehensive testing documentation
+- **[Scaling Guide](docs/SCALING.md)** - Production scaling strategies
+- **[Scaling Implementation](docs/SCALING_IMPLEMENTATION.md)** - Implementation details
+- **[Race Condition Fix](docs/RACE_CONDITION_FIX.md)** - Concurrent processing protection
+- **[Retry Mechanism](docs/RETRY_MECHANISM.md)** - Retry strategy documentation
+- **[Batch Size Configuration](docs/BATCH_SIZE_CONFIGURATION.md)** - SQS batch optimization
+- **[Message Deletion Fix](docs/MESSAGE_DELETION_FIX.md)** - SQS message handling
+- **[Query Scripts](docs/QUERY_SCRIPTS.md)** - Debugging and monitoring tools
+- **[Architecture Diagrams](docs/ARCHITECTURE_DIAGRAMS.md)** - Visual architecture
+
 ## Troubleshooting
 
 ### Puppeteer doesn't run in Docker

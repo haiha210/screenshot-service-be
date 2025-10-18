@@ -30,6 +30,10 @@ screenshots/
 dist/
 build/
 
+# Test coverage
+coverage/
+*.lcov
+
 # Puppeteer
 .local-chromium/
 
