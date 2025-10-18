@@ -6,7 +6,10 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:verbose": "jest --verbose",
     "send-message": "node scripts/send-test-message.js",
     "query-screenshots": "node scripts/query-screenshots.js",
     "get-screenshot": "node scripts/get-screenshot.js",
@@ -42,9 +45,11 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.38.0",
+    "@jest/globals": "^30.2.0",
     "eslint": "^9.38.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
+    "jest": "^30.2.0",
     "nodemon": "^3.1.7",
     "prettier": "^3.6.2"
   },
