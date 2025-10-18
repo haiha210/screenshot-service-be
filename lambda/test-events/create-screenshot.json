@@ -1,0 +1,8 @@
+{
+  "httpMethod": "POST",
+  "path": "/screenshots",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": "{\"url\":\"https://example.com\",\"width\":1920,\"height\":1080,\"format\":\"png\"}"
+}

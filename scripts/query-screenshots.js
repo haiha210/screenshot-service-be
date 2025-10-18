@@ -3,6 +3,12 @@
 /**
  * Script để query screenshots từ DynamoDB
  * Usage: node scripts/query-screenshots.js [status]
+ *
+ * Available statuses:
+ *   - processing: Message sent to SQS, waiting for consumer
+ *   - consumerProcessing: Consumer is actively processing the request
+ *   - success: Screenshot captured and uploaded successfully
+ *   - failed: Error occurred during processing
  */
 
 require('dotenv').config();

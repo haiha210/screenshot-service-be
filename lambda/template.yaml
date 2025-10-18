@@ -1,0 +1,82 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Screenshot Service Lambda Functions for Local Testing
+
+Metadata:
+  # Configure SAM to use the same Docker network as LocalStack
+  DockerNetwork: screenshot-service-be_screenshot-network
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 256
+    Runtime: nodejs18.x
+    Architectures:
+      - x86_64
+    Environment:
+      Variables:
+        AWS_REGION: us-east-1
+        AWS_ENDPOINT: http://localstack_screenshot_service:4566
+        DYNAMODB_TABLE_NAME: screenshot-results
+        SQS_QUEUE_URL: http://localstack_screenshot_service:4566/000000000000/screenshot-queue
+
+Resources:
+  CreateScreenshotFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: createScreenshot/
+      Handler: app.handler
+      Description: Create screenshot request and send to SQS
+      Environment:
+        Variables:
+          AWS_REGION: us-east-1
+          DYNAMODB_TABLE_NAME: screenshot-results
+          SQS_QUEUE_URL: http://localhost:4566/000000000000/screenshot-queue
+      Events:
+        CreateScreenshot:
+          Type: Api
+          Properties:
+            Path: /screenshots
+            Method: post
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: screenshot-results
+        - SQSSendMessagePolicy:
+            QueueName: screenshot-queue
+
+  GetScreenshotStatusFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: getScreenshotStatus/
+      Handler: app.handler
+      Description: Get screenshot request status from DynamoDB
+      Environment:
+        Variables:
+          AWS_REGION: us-east-1
+          DYNAMODB_TABLE_NAME: screenshot-results
+      Events:
+        GetStatus:
+          Type: Api
+          Properties:
+            Path: /screenshots/{requestId}
+            Method: get
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: screenshot-results
+
+Outputs:
+  CreateScreenshotApi:
+    Description: "API Gateway endpoint URL for CreateScreenshot function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/screenshots/"
+
+  CreateScreenshotFunction:
+    Description: "CreateScreenshot Lambda Function ARN"
+    Value: !GetAtt CreateScreenshotFunction.Arn
+
+  GetScreenshotStatusApi:
+    Description: "API Gateway endpoint URL for GetScreenshotStatus function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/screenshots/{requestId}"
+
+  GetScreenshotStatusFunction:
+    Description: "GetScreenshotStatus Lambda Function ARN"
+    Value: !GetAtt GetScreenshotStatusFunction.Arn
