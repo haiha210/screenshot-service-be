@@ -1,11 +1,13 @@
 const config = require('./config');
 const { createConsumer } = require('./services/sqsConsumer');
 const screenshotService = require('./services/screenshotService');
+const HealthCheckService = require('./services/healthCheckService');
 const logger = require('./utils/logger');
 
 // Handle graceful shutdown
 let isShuttingDown = false;
 let consumer = null;
+let healthCheckService = null;
 
 async function shutdown(signal) {
   if (isShuttingDown) return;
@@ -18,6 +20,11 @@ async function shutdown(signal) {
     if (consumer) {
       consumer.stop();
       logger.info('SQS consumer stopped');
+    }
+
+    // Stop health check server
+    if (healthCheckService) {
+      await healthCheckService.stop();
     }
 
     // Close Puppeteer browser
@@ -58,7 +65,12 @@ async function startService() {
       s3Bucket: config.s3.bucketName,
       dynamodbTable: config.dynamodb.tableName,
       region: config.aws.region,
+      healthCheckPort: config.healthCheck.port,
     });
+
+    // Start health check server
+    healthCheckService = new HealthCheckService();
+    await healthCheckService.start();
 
     // Initialize Puppeteer browser
     await screenshotService.initBrowser();

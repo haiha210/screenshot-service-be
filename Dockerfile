@@ -36,7 +36,7 @@ RUN addgroup -S appuser && adduser -S -G appuser appuser \
 USER appuser
 
 # Expose port (if needed for health checks)
-EXPOSE 3000
+EXPOSE 5000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \

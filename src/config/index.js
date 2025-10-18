@@ -40,6 +40,12 @@ const config = {
     nodeEnv: process.env.NODE_ENV || 'development',
     logLevel: process.env.LOG_LEVEL || 'info',
   },
+
+  // Health Check Configuration
+  healthCheck: {
+    port: parseInt(process.env.HEALTH_CHECK_PORT || '5000', 10),
+    path: process.env.HEALTH_CHECK_PATH || '/health',
+  },
 };
 
 // Validate required configuration
