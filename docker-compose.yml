@@ -35,8 +35,8 @@ services:
     image: localstack/localstack:latest
     container_name: localstack_screenshot_service
     ports:
-      - "4566:4566"
-      - "4571:4571"
+      - '4566:4566'
+      - '4571:4571'
     environment:
       - SERVICES=s3,sqs,dynamodb
       - DEBUG=1
@@ -49,7 +49,7 @@ services:
     networks:
       - screenshot-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:4566/_localstack/health']
       interval: 10s
       timeout: 5s
       retries: 5

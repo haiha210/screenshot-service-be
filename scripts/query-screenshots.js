@@ -5,20 +5,20 @@
  * Usage: node scripts/query-screenshots.js [status]
  */
 
-require("dotenv").config();
-const dynamodbService = require("../src/services/dynamodbService");
+require('dotenv').config();
+const dynamodbService = require('../src/services/dynamodbService');
 
-const status = process.argv[2] || "success";
+const status = process.argv[2] || 'success';
 
 async function queryScreenshots() {
   try {
     console.log(`Querying screenshots with status: ${status}`);
-    console.log("-------------------------------------------\n");
+    console.log('-------------------------------------------\n');
 
     const results = await dynamodbService.queryScreenshotsByStatus(status, 10);
 
     if (results.length === 0) {
-      console.log("No screenshots found with this status.");
+      console.log('No screenshots found with this status.');
       return;
     }
 
@@ -28,15 +28,15 @@ async function queryScreenshots() {
       console.log(`${index + 1}. Screenshot ID: ${item.id}`);
       console.log(`   URL: ${item.url}`);
       console.log(`   Status: ${item.status}`);
-      console.log(`   S3 URL: ${item.s3Url || "N/A"}`);
+      console.log(`   S3 URL: ${item.s3Url || 'N/A'}`);
       console.log(`   Created: ${item.createdAt}`);
       if (item.errorMessage) {
         console.log(`   Error: ${item.errorMessage}`);
       }
-      console.log("");
+      console.log('');
     });
   } catch (error) {
-    console.error("❌ Error querying screenshots:", error.message);
+    console.error('❌ Error querying screenshots:', error.message);
     process.exit(1);
   }
 }

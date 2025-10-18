@@ -42,7 +42,10 @@ process.on('uncaughtException', (error) => {
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  logger.error({ reason, promise, message: reason?.message, stack: reason?.stack }, 'Unhandled rejection');
+  logger.error(
+    { reason, promise, message: reason?.message, stack: reason?.stack },
+    'Unhandled rejection'
+  );
   shutdown('unhandledRejection');
 });
 
@@ -67,7 +70,10 @@ async function startService() {
     logger.info('Screenshot Service started successfully');
     logger.info('Listening for messages from SQS...');
   } catch (error) {
-    logger.error({ err: error, message: error.message, stack: error.stack }, 'Failed to start service');
+    logger.error(
+      { err: error, message: error.message, stack: error.stack },
+      'Failed to start service'
+    );
     process.exit(1);
   }
 }

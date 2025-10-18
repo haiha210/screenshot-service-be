@@ -16,7 +16,7 @@ class ScreenshotService {
         // Check if browser is still connected
         await this.browser.version();
         return this.browser;
-      } catch (error) {
+      } catch {
         logger.warn('Browser disconnected, reinitializing...');
         this.browser = null;
       }
@@ -64,8 +64,11 @@ class ScreenshotService {
         return this.browser;
       } catch (error) {
         lastError = error;
-        logger.warn({ attempt: i + 1, retries, err: error }, 'Failed to launch browser, retrying...');
-        await new Promise(resolve => setTimeout(resolve, 2000 * (i + 1)));
+        logger.warn(
+          { attempt: i + 1, retries, err: error },
+          'Failed to launch browser, retrying...'
+        );
+        await new Promise((resolve) => setTimeout(resolve, 2000 * (i + 1)));
       }
     }
 
@@ -119,7 +122,7 @@ class ScreenshotService {
       });
 
       // Wait a bit for dynamic content using standard setTimeout
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // Take screenshot
       const screenshotOptions = {
@@ -134,22 +137,28 @@ class ScreenshotService {
       const screenshot = await page.screenshot(screenshotOptions);
 
       const duration = Date.now() - startTime;
-      logger.info({
-        url,
-        size: screenshot.length,
-        duration,
-        format
-      }, 'Screenshot captured successfully');
+      logger.info(
+        {
+          url,
+          size: screenshot.length,
+          duration,
+          format,
+        },
+        'Screenshot captured successfully'
+      );
 
       return screenshot;
     } catch (error) {
       const duration = Date.now() - startTime;
-      logger.error({
-        err: error,
-        url,
-        duration,
-        format
-      }, 'Failed to capture screenshot');
+      logger.error(
+        {
+          err: error,
+          url,
+          duration,
+          format,
+        },
+        'Failed to capture screenshot'
+      );
       throw error;
     } finally {
       await page.close();

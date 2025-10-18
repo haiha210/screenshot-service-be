@@ -12,7 +12,11 @@
     "docker:build": "docker build -t screenshot-service:latest .",
     "docker:dev": "docker compose up -d",
     "docker:down": "docker compose down",
-    "docker:log_app": "docker compose logs -f screenshot-service-dev"
+    "docker:log_app": "docker compose logs -f screenshot-service-dev",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "keywords": [
     "screenshot",
@@ -36,7 +40,12 @@
     "uuid": "^10.0.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.7"
+    "@eslint/js": "^9.38.0",
+    "eslint": "^9.38.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "nodemon": "^3.1.7",
+    "prettier": "^3.6.2"
   },
   "engines": {
     "node": ">=18.0.0"

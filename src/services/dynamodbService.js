@@ -1,12 +1,7 @@
-const {
-  PutCommand,
-  GetCommand,
-  UpdateCommand,
-  QueryCommand,
-} = require("@aws-sdk/lib-dynamodb");
-const { dynamoDBDocClient } = require("../config/aws");
-const config = require("../config");
-const logger = require("../utils/logger");
+const { PutCommand, GetCommand, UpdateCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
+const { dynamoDBDocClient } = require('../config/aws');
+const config = require('../config');
+const logger = require('../utils/logger');
 
 class DynamoDBService {
   /**
@@ -51,7 +46,7 @@ class DynamoDBService {
           status,
           tableName: config.dynamodb.tableName,
         },
-        "Saving screenshot result to DynamoDB"
+        'Saving screenshot result to DynamoDB'
       );
 
       const command = new PutCommand({
@@ -67,7 +62,7 @@ class DynamoDBService {
           status,
           tableName: config.dynamodb.tableName,
         },
-        "Screenshot result saved successfully"
+        'Screenshot result saved successfully'
       );
 
       return {
@@ -81,7 +76,7 @@ class DynamoDBService {
           screenshotId,
           tableName: config.dynamodb.tableName,
         },
-        "Failed to save to DynamoDB"
+        'Failed to save to DynamoDB'
       );
       throw error;
     }
@@ -107,7 +102,7 @@ class DynamoDBService {
 
       return response.Item || null;
     } catch (error) {
-      logger.error("Error getting screenshot from DynamoDB:", error);
+      logger.error('Error getting screenshot from DynamoDB:', error);
       throw error;
     }
   }
@@ -131,21 +126,21 @@ class DynamoDBService {
           id: screenshotId,
         },
         UpdateExpression:
-          "SET #status = :status, updatedAt = :updatedAt, #s3Url = :s3Url, #s3Key = :s3Key, #errorMessage = :errorMessage",
+          'SET #status = :status, updatedAt = :updatedAt, #s3Url = :s3Url, #s3Key = :s3Key, #errorMessage = :errorMessage',
         ExpressionAttributeNames: {
-          "#status": "status",
-          "#s3Url": "s3Url",
-          "#s3Key": "s3Key",
-          "#errorMessage": "errorMessage",
+          '#status': 'status',
+          '#s3Url': 's3Url',
+          '#s3Key': 's3Key',
+          '#errorMessage': 'errorMessage',
         },
         ExpressionAttributeValues: {
-          ":status": status,
-          ":updatedAt": timestamp,
-          ":s3Url": updates.s3Url || null,
-          ":s3Key": updates.s3Key || null,
-          ":errorMessage": updates.errorMessage || null,
+          ':status': status,
+          ':updatedAt': timestamp,
+          ':s3Url': updates.s3Url || null,
+          ':s3Key': updates.s3Key || null,
+          ':errorMessage': updates.errorMessage || null,
         },
-        ReturnValues: "ALL_NEW",
+        ReturnValues: 'ALL_NEW',
       });
 
       const response = await dynamoDBDocClient.send(command);
@@ -157,7 +152,7 @@ class DynamoDBService {
         item: response.Attributes,
       };
     } catch (error) {
-      logger.error("Error updating screenshot status:", error);
+      logger.error('Error updating screenshot status:', error);
       throw error;
     }
   }
@@ -174,13 +169,13 @@ class DynamoDBService {
 
       const command = new QueryCommand({
         TableName: config.dynamodb.tableName,
-        IndexName: "status-createdAt-index", // You need to create this GSI
-        KeyConditionExpression: "#status = :status",
+        IndexName: 'status-createdAt-index', // You need to create this GSI
+        KeyConditionExpression: '#status = :status',
         ExpressionAttributeNames: {
-          "#status": "status",
+          '#status': 'status',
         },
         ExpressionAttributeValues: {
-          ":status": status,
+          ':status': status,
         },
         Limit: limit,
         ScanIndexForward: false, // Sort descending by createdAt
@@ -190,7 +185,7 @@ class DynamoDBService {
 
       return response.Items || [];
     } catch (error) {
-      logger.error("Error querying screenshots by status:", error);
+      logger.error('Error querying screenshots by status:', error);
       throw error;
     }
   }

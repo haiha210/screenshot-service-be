@@ -15,12 +15,15 @@ class S3Service {
     const startTime = Date.now();
 
     try {
-      logger.info({
-        key,
-        bucket: config.s3.bucketName,
-        contentType,
-        size: buffer.length
-      }, 'Uploading file to S3');
+      logger.info(
+        {
+          key,
+          bucket: config.s3.bucketName,
+          contentType,
+          size: buffer.length,
+        },
+        'Uploading file to S3'
+      );
 
       const command = new PutObjectCommand({
         Bucket: config.s3.bucketName,
@@ -34,13 +37,16 @@ class S3Service {
       const s3Url = `https://${config.s3.bucketName}.s3.${config.aws.region}.amazonaws.com/${key}`;
       const duration = Date.now() - startTime;
 
-      logger.info({
-        key,
-        bucket: config.s3.bucketName,
-        url: s3Url,
-        size: buffer.length,
-        duration
-      }, 'File uploaded successfully to S3');
+      logger.info(
+        {
+          key,
+          bucket: config.s3.bucketName,
+          url: s3Url,
+          size: buffer.length,
+          duration,
+        },
+        'File uploaded successfully to S3'
+      );
 
       return {
         success: true,
@@ -50,12 +56,15 @@ class S3Service {
       };
     } catch (error) {
       const duration = Date.now() - startTime;
-      logger.error({
-        err: error,
-        key,
-        bucket: config.s3.bucketName,
-        duration
-      }, 'Failed to upload file to S3');
+      logger.error(
+        {
+          err: error,
+          key,
+          bucket: config.s3.bucketName,
+          duration,
+        },
+        'Failed to upload file to S3'
+      );
       throw error;
     }
   }

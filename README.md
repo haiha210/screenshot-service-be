@@ -247,6 +247,7 @@ yarn send-message https://google.com
 ```
 
 The script will:
+
 - Generate a unique `requestId`
 - Send the message to SQS
 - Save message info to `logs/sent-messages.json` for tracking
@@ -299,6 +300,7 @@ docker-compose down
 ```
 
 LocalStack will automatically initialize:
+
 - SQS queue: `screenshot-queue`
 - S3 bucket: `screenshot-bucket`
 - DynamoDB table: `screenshot-results` with GSI
@@ -451,11 +453,11 @@ Create `task-definition.json`:
       "image": "<account-id>.dkr.ecr.us-east-1.amazonaws.com/screenshot-service:latest",
       "essential": true,
       "environment": [
-        {"name": "AWS_REGION", "value": "us-east-1"},
-        {"name": "SQS_QUEUE_URL", "value": "your-queue-url"},
-        {"name": "S3_BUCKET_NAME", "value": "your-bucket-name"},
-        {"name": "DYNAMODB_TABLE_NAME", "value": "screenshot-results"},
-        {"name": "NODE_ENV", "value": "production"}
+        { "name": "AWS_REGION", "value": "us-east-1" },
+        { "name": "SQS_QUEUE_URL", "value": "your-queue-url" },
+        { "name": "S3_BUCKET_NAME", "value": "your-bucket-name" },
+        { "name": "DYNAMODB_TABLE_NAME", "value": "screenshot-results" },
+        { "name": "NODE_ENV", "value": "production" }
       ],
       "logConfiguration": {
         "logDriver": "awslogs",
@@ -500,29 +502,17 @@ Service requires the following permissions:
   "Statement": [
     {
       "Effect": "Allow",
-      "Action": [
-        "sqs:ReceiveMessage",
-        "sqs:DeleteMessage",
-        "sqs:GetQueueAttributes"
-      ],
+      "Action": ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"],
       "Resource": "arn:aws:sqs:*:*:screenshot-queue"
     },
     {
       "Effect": "Allow",
-      "Action": [
-        "s3:PutObject",
-        "s3:PutObjectAcl"
-      ],
+      "Action": ["s3:PutObject", "s3:PutObjectAcl"],
       "Resource": "arn:aws:s3:::your-screenshot-bucket/*"
     },
     {
       "Effect": "Allow",
-      "Action": [
-        "dynamodb:PutItem",
-        "dynamodb:GetItem",
-        "dynamodb:UpdateItem",
-        "dynamodb:Query"
-      ],
+      "Action": ["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:UpdateItem", "dynamodb:Query"],
       "Resource": [
         "arn:aws:dynamodb:*:*:table/screenshot-results",
         "arn:aws:dynamodb:*:*:table/screenshot-results/index/*"

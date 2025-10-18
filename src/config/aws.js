@@ -1,10 +1,10 @@
-const { S3Client } = require("@aws-sdk/client-s3");
-const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-const { DynamoDBDocumentClient } = require("@aws-sdk/lib-dynamodb");
-const { SQSClient } = require("@aws-sdk/client-sqs");
+const { S3Client } = require('@aws-sdk/client-s3');
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient } = require('@aws-sdk/lib-dynamodb');
+const { SQSClient } = require('@aws-sdk/client-sqs');
 
 // AWS Region configuration
-const AWS_REGION = process.env.AWS_REGION || "us-east-1";
+const AWS_REGION = process.env.AWS_REGION || 'us-east-1';
 
 // AWS Endpoint for LocalStack support
 const AWS_ENDPOINT = process.env.AWS_ENDPOINT || undefined;
