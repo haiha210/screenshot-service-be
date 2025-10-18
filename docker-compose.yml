@@ -1,0 +1,62 @@
+services:
+  # Screenshot Service for Development
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: screenshot-service-dev
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Override .env values for LocalStack
+      - NODE_ENV=development
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT=http://localstack:4566
+      - SQS_QUEUE_URL=http://localstack:4566/000000000000/screenshot-queue
+      - S3_BUCKET_NAME=screenshot-bucket
+      - DYNAMODB_TABLE_NAME=screenshot-results
+      - LOG_LEVEL=debug
+    volumes:
+      - ./src:/usr/src/app/src
+      - ./logs:/usr/src/app/logs
+      - /usr/src/app/node_modules
+    networks:
+      - screenshot-network
+    depends_on:
+      localstack:
+        condition: service_healthy
+    command: yarn dev
+
+  # LocalStack for local AWS development
+  localstack:
+    image: localstack/localstack:latest
+    container_name: localstack_screenshot_service
+    ports:
+      - "4566:4566"
+      - "4571:4571"
+    environment:
+      - SERVICES=s3,sqs,dynamodb
+      - DEBUG=1
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - AWS_DEFAULT_REGION=us-east-1
+    volumes:
+      - localstack-data:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./localstack-init:/docker-entrypoint-initaws.d
+    networks:
+      - screenshot-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  screenshot-network:
+    driver: bridge
+
+volumes:
+  localstack-data:

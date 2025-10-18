@@ -1,0 +1,44 @@
+{
+  "name": "screenshot-service-be",
+  "version": "1.0.0",
+  "description": "Screenshot service that captures website screenshots, uploads to S3, and stores results in DynamoDB",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "send-message": "node scripts/send-test-message.js",
+    "query-screenshots": "node scripts/query-screenshots.js",
+    "docker:build": "docker build -t screenshot-service:latest .",
+    "docker:dev": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:log_app": "docker compose logs -f screenshot-service-dev"
+  },
+  "keywords": [
+    "screenshot",
+    "sqs",
+    "s3",
+    "dynamodb",
+    "puppeteer"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.658.1",
+    "@aws-sdk/client-s3": "^3.658.1",
+    "@aws-sdk/client-sqs": "^3.658.1",
+    "@aws-sdk/lib-dynamodb": "^3.658.1",
+    "dotenv": "^16.4.5",
+    "pino": "^9.4.0",
+    "pino-pretty": "^11.2.2",
+    "puppeteer": "^24.15.0",
+    "sqs-consumer": "^10.3.0",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,33 @@
+services:
+  # Screenshot Service
+  screenshot-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: screenshot-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - SQS_QUEUE_URL=${SQS_QUEUE_URL}
+      - SQS_BATCH_SIZE=${SQS_BATCH_SIZE:-1}
+      - SQS_VISIBILITY_TIMEOUT=${SQS_VISIBILITY_TIMEOUT:-300}
+      - SQS_WAIT_TIME_SECONDS=${SQS_WAIT_TIME_SECONDS:-20}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+      - S3_SCREENSHOT_PREFIX=${S3_SCREENSHOT_PREFIX:-screenshots/}
+      - DYNAMODB_TABLE_NAME=${DYNAMODB_TABLE_NAME}
+      - SCREENSHOT_WIDTH=${SCREENSHOT_WIDTH:-1920}
+      - SCREENSHOT_HEIGHT=${SCREENSHOT_HEIGHT:-1080}
+      - SCREENSHOT_TIMEOUT=${SCREENSHOT_TIMEOUT:-30000}
+      - SCREENSHOT_FORMAT=${SCREENSHOT_FORMAT:-png}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - ./logs:/usr/src/app/logs
+    networks:
+      - screenshot-network
+
+networks:
+  screenshot-network:
+    driver: bridge
