@@ -11,6 +11,7 @@ processing → consumerProcessing → success/failed
 ## Status Definitions
 
 ### 1. `processing`
+
 - **When**: Created when SQS message is sent (before consumer picks it up)
 - **Created By**: `send-test-message.js` script or API endpoint
 - **Meaning**: Request is queued in SQS, waiting for a consumer to process it
@@ -18,6 +19,7 @@ processing → consumerProcessing → success/failed
 - **Next Status**: `consumerProcessing` when consumer starts processing
 
 ### 2. `consumerProcessing`
+
 - **When**: Updated when SQS consumer begins actively processing the request
 - **Created By**: `sqsConsumer.js` - handleMessage function
 - **Meaning**: Consumer has received the message and is actively capturing/uploading screenshot
@@ -28,6 +30,7 @@ processing → consumerProcessing → success/failed
 - **Next Status**: `success` or `failed` when processing completes
 
 ### 3. `success`
+
 - **When**: Screenshot captured and uploaded to S3 successfully
 - **Created By**: `sqsConsumer.js` after successful S3 upload
 - **Meaning**: Request completed successfully, screenshot available
@@ -35,6 +38,7 @@ processing → consumerProcessing → success/failed
 - **Next Status**: None (terminal state)
 
 ### 4. `failed`
+
 - **When**: Error occurred during screenshot capture or S3 upload
 - **Created By**: `sqsConsumer.js` error handler
 - **Meaning**: Request failed, will be retried by SQS (up to 3 times)
@@ -131,12 +135,14 @@ The consumer implements several checks to prevent duplicate processing:
 ### Why Two "Processing" States?
 
 **Problem without `consumerProcessing`:**
+
 - Consumer A picks up message, starts processing
 - Consumer B receives same message (SQS visibility timeout race)
 - Both consumers see status = "processing" and think it's fresh work
 - Both process the same request (wasted resources)
 
 **Solution with `consumerProcessing`:**
+
 - Consumer A updates to `consumerProcessing` immediately
 - Consumer B sees `consumerProcessing` (recent) and skips
 - Only Consumer A processes the request
@@ -189,7 +195,7 @@ console.log({
   queued: processing.length,
   active: consumerProcessing.length,
   completed: success.length,
-  errors: failed.length
+  errors: failed.length,
 });
 ```
 
@@ -200,11 +206,13 @@ console.log({
 **Symptoms**: Many requests stuck in `consumerProcessing`
 
 **Possible Causes**:
+
 1. Consumer containers crashing during processing
 2. Network issues preventing S3 upload
 3. Screenshot capture taking too long (timeout)
 
 **Solution**:
+
 - Check consumer logs for errors
 - Verify S3 connectivity
 - Consider increasing stale timeout (currently 10 min)
@@ -214,11 +222,13 @@ console.log({
 **Symptoms**: Requests never transition to `consumerProcessing`
 
 **Possible Causes**:
+
 1. No active consumers running
 2. SQS queue misconfigured
 3. Consumers not polling queue
 
 **Solution**:
+
 - Verify consumers are running: `docker compose ps`
 - Check SQS queue metrics in AWS console/LocalStack
 - Review consumer startup logs
@@ -228,11 +238,13 @@ console.log({
 **Symptoms**: Same screenshot processed multiple times
 
 **Possible Causes**:
+
 1. SQS visibility timeout too short
 2. Consumer not updating status fast enough
 3. DynamoDB eventual consistency
 
 **Solution**:
+
 - Increase SQS visibility timeout (currently 300s)
 - Add DynamoDB conditional writes (already implemented)
 - Enable DynamoDB strong consistency for reads

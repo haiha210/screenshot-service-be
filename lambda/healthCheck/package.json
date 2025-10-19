@@ -1,0 +1,21 @@
+{
+  "name": "health-check-lambda",
+  "version": "1.0.0",
+  "description": "Lambda function for health check endpoint",
+  "main": "app.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "jest": "^29.0.0"
+  },
+  "keywords": [
+    "lambda",
+    "health-check",
+    "aws",
+    "serverless"
+  ],
+  "author": "",
+  "license": "MIT"
+}

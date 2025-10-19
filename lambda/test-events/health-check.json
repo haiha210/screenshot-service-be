@@ -1,0 +1,20 @@
+{
+  "httpMethod": "GET",
+  "path": "/health",
+  "headers": {
+    "Accept": "application/json",
+    "Content-Type": "application/json"
+  },
+  "queryStringParameters": null,
+  "body": null,
+  "isBase64Encoded": false,
+  "requestContext": {
+    "requestId": "test-request-id",
+    "stage": "test",
+    "resourcePath": "/health",
+    "httpMethod": "GET",
+    "identity": {
+      "sourceIp": "127.0.0.1"
+    }
+  }
+}

@@ -1,0 +1,51 @@
+openapi: 3.0.3
+info:
+  title: Screenshot Service API
+  version: 1.0.0
+
+paths:
+  /health:
+    get:
+      operationId: healthCheck
+      x-amazon-apigateway-integration:
+        uri: arn:aws:apigateway:${region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${region}:${account_id}:function:healthCheck-${env}/invocations
+        passthroughBehavior: when_no_match
+        httpMethod: POST
+        type: aws_proxy
+      responses:
+        '200':
+          description: OK
+
+  /screenshots:
+    post:
+      operationId: createScreenshot
+      x-amazon-apigateway-integration:
+        uri: arn:aws:apigateway:${region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${region}:${account_id}:function:createScreenshot-${env}/invocations
+        passthroughBehavior: when_no_match
+        httpMethod: POST
+        type: aws_proxy
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Bad Request
+
+  /screenshots/{requestId}:
+    get:
+      operationId: getScreenshotStatus
+      x-amazon-apigateway-integration:
+        uri: arn:aws:apigateway:${region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${region}:${account_id}:function:getScreenshotStatus-${env}/invocations
+        passthroughBehavior: when_no_match
+        httpMethod: POST
+        type: aws_proxy
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: Not Found

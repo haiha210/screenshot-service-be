@@ -10,17 +10,34 @@ Globals:
   Function:
     Timeout: 30
     MemorySize: 256
-    Runtime: nodejs18.x
+    Runtime: nodejs22.x
     Architectures:
       - x86_64
     Environment:
       Variables:
+        NODE_ENV: development
         AWS_REGION: us-east-1
         AWS_ENDPOINT: http://localstack_screenshot_service:4566
         DYNAMODB_TABLE_NAME: screenshot-results
         SQS_QUEUE_URL: http://localstack_screenshot_service:4566/000000000000/screenshot-queue
 
 Resources:
+  HealthCheckFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: healthCheck/
+      Handler: app.handler
+      Description: Health check endpoint for service monitoring
+      Timeout: 10
+      MemorySize: 128
+      Runtime: nodejs22.x
+      Events:
+        HealthCheck:
+          Type: Api
+          Properties:
+            Path: /health
+            Method: get
+
   CreateScreenshotFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -65,18 +82,26 @@ Resources:
             TableName: screenshot-results
 
 Outputs:
+  HealthCheckApi:
+    Description: 'API Gateway endpoint URL for Health Check function'
+    Value: !Sub 'https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/health'
+
+  HealthCheckFunction:
+    Description: 'Health Check Lambda Function ARN'
+    Value: !GetAtt HealthCheckFunction.Arn
+
   CreateScreenshotApi:
-    Description: "API Gateway endpoint URL for CreateScreenshot function"
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/screenshots/"
+    Description: 'API Gateway endpoint URL for CreateScreenshot function'
+    Value: !Sub 'https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/screenshots/'
 
   CreateScreenshotFunction:
-    Description: "CreateScreenshot Lambda Function ARN"
+    Description: 'CreateScreenshot Lambda Function ARN'
     Value: !GetAtt CreateScreenshotFunction.Arn
 
   GetScreenshotStatusApi:
-    Description: "API Gateway endpoint URL for GetScreenshotStatus function"
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/screenshots/{requestId}"
+    Description: 'API Gateway endpoint URL for GetScreenshotStatus function'
+    Value: !Sub 'https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/screenshots/{requestId}'
 
   GetScreenshotStatusFunction:
-    Description: "GetScreenshotStatus Lambda Function ARN"
+    Description: 'GetScreenshotStatus Lambda Function ARN'
     Value: !GetAtt GetScreenshotStatusFunction.Arn
