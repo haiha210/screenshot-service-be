@@ -623,13 +623,13 @@ npx jest src/services/__tests__/dynamodbService.test.js
 
 Current coverage (updated October 2025):
 
-| Service | Coverage |
-|---------|----------|
-| DynamoDB Service | 97.87% |
-| S3 Service | 100% |
-| Screenshot Service | 91.93% |
-| SQS Consumer | 76.19% |
-| **Overall** | **86.56%** |
+| Service            | Coverage   |
+| ------------------ | ---------- |
+| DynamoDB Service   | 97.87%     |
+| S3 Service         | 100%       |
+| Screenshot Service | 91.93%     |
+| SQS Consumer       | 76.19%     |
+| **Overall**        | **86.56%** |
 
 ### Test Structure
 

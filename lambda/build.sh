@@ -36,6 +36,16 @@ cd ..
 echo "✅ getScreenshotStatus.zip created"
 echo ""
 
+# Build healthCheck
+echo "Building healthCheck..."
+cd healthCheck
+npm install --omit=dev
+zip -r ../../dist/healthCheck.zip . -x "*.git*" -x "node_modules/.cache/*" -x "package-lock.json"
+cd ..
+
+echo "✅ healthCheck.zip created"
+echo ""
+
 echo "================================================"
 echo "✅ Build completed successfully!"
 echo "================================================"
@@ -43,6 +53,7 @@ echo ""
 echo "Output files:"
 echo "  - dist/createScreenshot.zip"
 echo "  - dist/getScreenshotStatus.zip"
+echo "  - dist/healthCheck.zip"
 echo ""
 echo "These files can be used in your Terraform project:"
 echo ""
